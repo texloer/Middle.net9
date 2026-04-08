@@ -1,0 +1,91 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>none</DebugType>
+    <GenerateInnoSetupInstaller>true</GenerateInnoSetupInstaller>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <InstallerScriptPath>$(MSBuildProjectDirectory)\Middle.iss</InstallerScriptPath>
+    <InstallerOutputDir>$(MSBuildProjectDirectory)\installer</InstallerOutputDir>
+    <InstallerAppVersion Condition="'$(InstallerAppVersion)' == '' and '$(Version)' != ''">$(Version)</InstallerAppVersion>
+    <InstallerAppVersion Condition="'$(InstallerAppVersion)' == ''">1.0.0</InstallerAppVersion>
+    <InnoSetupCompilerPath Condition="'$(InnoSetupCompilerPath)' == '' and Exists('C:\Program Files (x86)\Inno Setup 6\ISCC.exe')">C:\Program Files (x86)\Inno Setup 6\ISCC.exe</InnoSetupCompilerPath>
+    <InnoSetupCompilerPath Condition="'$(InnoSetupCompilerPath)' == '' and Exists('C:\Program Files\Inno Setup 6\ISCC.exe')">C:\Program Files\Inno Setup 6\ISCC.exe</InnoSetupCompilerPath>
+  </PropertyGroup>
+
+  <!-- 仅在 Release 模式构建 React UI（Debug 模式使用 Vite 开发服务器） -->
+  <Target Name="BuildReactUI" BeforeTargets="BeforeBuild" Condition="'$(Configuration)' == 'Release'">
+    <Message Text="🔨 Release 模式：开始构建 React UI..." Importance="high" />
+
+    <!-- 检查 my-ui 目录是否存在 -->
+    <Error Condition="!Exists('my-ui')" Text="错误：未找到 my-ui 目录！" />
+
+    <!-- 检查 node_modules 是否存在 -->
+    <Error Condition="!Exists('my-ui\node_modules')" Text="错误：未找到 node_modules！请先运行: cd my-ui &amp;&amp; npm install" />
+
+    <!-- 执行 npm run build -->
+    <Exec Command="npm run build" WorkingDirectory="my-ui" />
+
+    <Message Text="✅ React UI 构建完成！输出目录: WebAsset\" Importance="high" />
+  </Target>
+
+<!-- 仅在 Release 模式复制 WebAsset（Debug 模式不需要） -->
+<ItemGroup Condition="'$(Configuration)' == 'Release'">
+  <Content Include="WebAsset\**">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </Content>
+</ItemGroup>
+<ItemGroup>
+  <None Include=".github\copilot-instructions.md" />
+</ItemGroup>
+
+<ItemGroup>
+  <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3856.49" />
+</ItemGroup>
+
+  <Target Name="SlimPublishOutput" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <FilesToDelete Include="$(PublishDir)Microsoft.Web.WebView2.Core.xml" />
+      <FilesToDelete Include="$(PublishDir)Microsoft.Web.WebView2.Wpf.xml" />
+      <FilesToDelete Include="$(PublishDir)Microsoft.Web.WebView2.WinForms.xml" />
+      <FilesToDelete Include="$(PublishDir)Microsoft.Web.WebView2.WinForms.dll" />
+      <FilesToDelete Include="$(PublishDir)Middle.pdb" />
+    </ItemGroup>
+
+    <Delete Files="@(FilesToDelete)" TreatErrorsAsWarnings="true" />
+  </Target>
+
+  <Target Name="BuildInnoSetupInstaller"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' and '$(GenerateInnoSetupInstaller)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <PropertyGroup>
+      <InstallerInputDir>$(TargetDir)</InstallerInputDir>
+    </PropertyGroup>
+
+    <Error Condition="!Exists('$(InstallerScriptPath)')"
+           Text="未找到 Inno Setup 脚本: $(InstallerScriptPath)" />
+    <Error Condition="'$(InnoSetupCompilerPath)' == '' or !Exists('$(InnoSetupCompilerPath)')"
+           Text="未找到 Inno Setup 编译器 ISCC.exe。请先安装 Inno Setup 6，或通过 /p:InnoSetupCompilerPath=... 指定路径。" />
+    <Error Condition="'$(InstallerInputDir)' == '' or !Exists('$(InstallerInputDir)')"
+           Text="未找到用于制作安装包的生成输出目录: $(InstallerInputDir)" />
+
+    <MakeDir Directories="$(InstallerOutputDir)" />
+    <Message Text="📦 正在生成 Inno Setup 安装包..." Importance="high" />
+    <Exec Command="&quot;$(InnoSetupCompilerPath)&quot; /DMyAppVersion=$(InstallerAppVersion) /DPublishDir=&quot;$(InstallerInputDir)&quot; &quot;$(InstallerScriptPath)&quot;"
+          WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <Message Text="✅ Inno Setup 安装包已生成到: $(InstallerOutputDir)" Importance="high" />
+  </Target>
+
+</Project>
