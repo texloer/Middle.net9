@@ -111,6 +111,11 @@ A：请在 `Middle.Frontend/package.json` 中添加依赖后，运行 `npm insta
 - **Ctrl+Shift+I** - 打开开发者工具（备用）
 
 ---
+</div>
+
+### 添加后端业务逻辑
+
+在 `MainViewModel.cs` 的 `HandleFrontendMessage` 方法中处理新的消息类型：
 
 ## 📁 项目结构
 
@@ -265,6 +270,11 @@ export default App;
 
 ---
 
+</div>
+
+### 添加后端业务逻辑
+
+在 `MainViewModel.cs` 的 `HandleFrontendMessage` 方法中处理新的消息类型：
 ## 📚 学习资源
 
 项目包含详细的学习指南：
@@ -320,8 +330,4 @@ export default App;
 
 Made with ❤️ using .NET 9 and React
 
-</div>
 
-### 添加后端业务逻辑
-
-在 `MainViewModel.cs` 的 `HandleFrontendMessage` 方法中处理新的消息类型：

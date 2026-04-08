@@ -146,3 +146,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Log4net 日志文件
+logs/
+*.log

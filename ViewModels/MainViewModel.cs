@@ -4,11 +4,14 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Windows.Threading;
+using log4net;
 
 namespace SemiconductorControlSystem.ViewModels
 {
     public class MainViewModel : INotifyPropertyChanged, IDisposable
     {
+        private static readonly ILog log = LogManager.GetLogger(typeof(MainViewModel));
+
         private string _statusMessage = "系统就绪";
         private string _lastReceivedMessage = "";
         private readonly Dispatcher _uiDispatcher;
@@ -27,11 +30,17 @@ namespace SemiconductorControlSystem.ViewModels
         /// </summary>
         public MainViewModel()
         {
+            log.Info("MainViewModel 初始化开始");
+            
             _uiDispatcher = Dispatcher.CurrentDispatcher;
             _configFilePath = GetConfigFilePath();
 
+            log.Debug($"配置文件路径: {_configFilePath}");
+
             EnsureConfigFileExists();
             StartConfigWatcher();
+
+            log.Info("MainViewModel 初始化完成");
         }
 
         public string StatusMessage
@@ -83,6 +92,8 @@ namespace SemiconductorControlSystem.ViewModels
         /// </summary>
         public void HandleFrontendMessage(string message)
         {
+            log.Debug($"收到前端消息: {message}");
+            
             LastReceivedMessage = message;
 
             if (TryHandleJsonMessage(message))
@@ -90,26 +101,28 @@ namespace SemiconductorControlSystem.ViewModels
                 return;
             }
 
-            // 这里可以解析JSON并执行具体的业务逻辑ssss
-            // 示例：根据不同的消息类型执行不同操作
+            // 这里可以解析JSON并执行具体的业务逻辑
             if (message.Contains("\"action\":\"start\""))
             {
+                log.Info("设备启动命令");
                 StatusMessage = "设备启动中...";
-                // 模拟后台任务（如设备启动）
                 SimulateBackgroundTask("设备启动完成");
             }
             else if (message.Contains("\"action\":\"stop\""))
             {
+                log.Info("设备停止命令");
                 StatusMessage = "设备停止中...";
                 SimulateBackgroundTask("设备已停止");
             }
             else if (message.Contains("\"action\":\"query\""))
             {
+                log.Info("查询设备状态");
                 StatusMessage = "查询设备状态...";
                 SimulateBackgroundTask("状态：运行中 | 温度：25.5°C");
             }
             else
             {
+                log.Warn($"未识别的消息类型: {message}");
                 StatusMessage = $"收到前端消息: {message}";
             }
         }
@@ -126,6 +139,7 @@ namespace SemiconductorControlSystem.ViewModels
                 }
 
                 string? action = actionElement.GetString();
+                log.Info($"处理 JSON 消息，action: {action}");
 
                 switch (action)
                 {
@@ -145,6 +159,7 @@ namespace SemiconductorControlSystem.ViewModels
                         return true;
 
                     case "getConfig":
+                        log.Debug("请求加载配置");
                         StatusMessage = "已加载配置文件";
                         SendConfigToFrontend("configLoaded", "配置已读取");
                         return true;
@@ -152,6 +167,7 @@ namespace SemiconductorControlSystem.ViewModels
                     case "updateConfig":
                         if (!document.RootElement.TryGetProperty("data", out var dataElement))
                         {
+                            log.Error("更新配置失败：未收到配置数据");
                             SendDataToFrontend(new
                             {
                                 type = "configSaveFailed",
@@ -164,6 +180,7 @@ namespace SemiconductorControlSystem.ViewModels
                         AppConfig? config = JsonSerializer.Deserialize<AppConfig>(dataElement.GetRawText(), _jsonSerializerOptions);
                         if (config == null)
                         {
+                            log.Error("更新配置失败：配置数据格式无效");
                             SendDataToFrontend(new
                             {
                                 type = "configSaveFailed",
@@ -179,33 +196,45 @@ namespace SemiconductorControlSystem.ViewModels
 
                 return false;
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
+                log.Error("JSON 解析失败", ex);
                 return false;
             }
         }
 
         /// <summary>
         /// 模拟后台任务（如PLC通信、数据采集等）
-        /// 演示从后台线程更新UI的正确方式
         /// </summary>
         private void SimulateBackgroundTask(string resultMessage)
         {
             Task.Run(async () =>
             {
-                // 模拟耗时操作（如设备通信）
-                await Task.Delay(2000);
+                try
+                {
+                    log.Debug($"开始后台任务: {resultMessage}");
+                    
+                    // 模拟耗时操作（如设备通信）
+                    await Task.Delay(2000);
 
-                // 后台线程更新状态 - 会自动切换到UI线程
-                StatusMessage = resultMessage;
+                    log.Debug($"后台任务完成: {resultMessage}");
 
-                // 同时向前端发送结果
-                SendDataToFrontend(new 
-                { 
-                    success = true, 
-                    message = resultMessage,
-                    timestamp = DateTime.Now.ToString("HH:mm:ss")
-                });
+                    // 后台线程更新状态
+                    StatusMessage = resultMessage;
+
+                    // 同时向前端发送结果
+                    SendDataToFrontend(new 
+                    { 
+                        success = true, 
+                        message = resultMessage,
+                        timestamp = DateTime.Now.ToString("HH:mm:ss")
+                    });
+                }
+                catch (Exception ex)
+                {
+                    log.Error("后台任务执行失败", ex);
+                    StatusMessage = $"任务失败: {ex.Message}";
+                }
             });
         }
 
@@ -220,6 +249,7 @@ namespace SemiconductorControlSystem.ViewModels
         public void SendDataToFrontend(object data)
         {
             string json = JsonSerializer.Serialize(data, _jsonSerializerOptions);
+            log.Debug($"发送数据到前端: {json}");
             SendMessageToFrontend?.Invoke(json);
         }
 
@@ -240,10 +270,12 @@ namespace SemiconductorControlSystem.ViewModels
             if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);
+                log.Info($"创建配置文件目录: {directory}");
             }
 
             if (!File.Exists(_configFilePath))
             {
+                log.Info($"配置文件不存在，创建默认配置: {_configFilePath}");
                 WriteConfigToFile(new AppConfig());
             }
         }
@@ -255,6 +287,7 @@ namespace SemiconductorControlSystem.ViewModels
 
             if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(fileName))
             {
+                log.Warn("无法启动配置文件监听：路径无效");
                 return;
             }
 
@@ -267,6 +300,8 @@ namespace SemiconductorControlSystem.ViewModels
             _configWatcher.Changed += OnConfigFileChanged;
             _configWatcher.Created += OnConfigFileChanged;
             _configWatcher.Renamed += OnConfigFileChanged;
+
+            log.Info("配置文件监听器已启动");
         }
 
         private void OnConfigFileChanged(object sender, FileSystemEventArgs e)
@@ -275,6 +310,8 @@ namespace SemiconductorControlSystem.ViewModels
             {
                 return;
             }
+
+            log.Info($"配置文件变更: {e.ChangeType}");
 
             _ = Task.Run(async () =>
             {
@@ -285,6 +322,7 @@ namespace SemiconductorControlSystem.ViewModels
 
         private void SaveConfig(AppConfig config)
         {
+            log.Info($"保存配置: StationName={config.StationName}, DeviceIp={config.DeviceIp}");
             WriteConfigToFile(config);
             StatusMessage = $"配置已保存到 config.ini - {DateTime.Now:HH:mm:ss}";
             SendConfigToFrontend("configSaved", "配置已保存");
@@ -292,15 +330,19 @@ namespace SemiconductorControlSystem.ViewModels
 
         private AppConfig LoadConfig()
         {
+            log.Debug("加载配置文件");
+            
             AppConfig config = new();
             if (!File.Exists(_configFilePath))
             {
+                log.Warn("配置文件不存在");
                 return config;
             }
 
             Dictionary<string, Dictionary<string, string>> sections = ParseIniFile();
             if (!sections.TryGetValue("Config", out var configSection))
             {
+                log.Warn("配置文件中未找到 [Config] 节");
                 return config;
             }
 
@@ -334,6 +376,7 @@ namespace SemiconductorControlSystem.ViewModels
                 config.Theme = theme;
             }
 
+            log.Info("配置加载成功");
             return config;
         }
 
@@ -415,6 +458,12 @@ namespace SemiconductorControlSystem.ViewModels
             try
             {
                 File.WriteAllLines(_configFilePath, lines);
+                log.Debug("配置文件写入成功");
+            }
+            catch (Exception ex)
+            {
+                log.Error("配置文件写入失败", ex);
+                throw;
             }
             finally
             {
@@ -445,6 +494,8 @@ namespace SemiconductorControlSystem.ViewModels
 
         public void Dispose()
         {
+            log.Info("MainViewModel 释放资源");
+            
             if (_configWatcher != null)
             {
                 _configWatcher.Changed -= OnConfigFileChanged;
