@@ -7,16 +7,16 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
-            <RowDefinition Height="30" />
+           
         </Grid.RowDefinitions>
 
         <wv2:WebView2 x:Name="MyWebView" Grid.Row="0" />
 
-        <StatusBar Grid.Row="1" Background="#2D2D2D" Foreground="White">
+        <!--<StatusBar Grid.Row="1" Background="#2D2D2D" Foreground="White">
             <StatusBarItem>
-                <!-- 双向绑定：后台更新会自动反映到这里 -->
-                <TextBlock x:Name="StatusLabel" Text="{Binding StatusMessage, Mode=OneWay}" />
+                --><!-- 直接使用 TextBlock，不绑定 --><!--
+                <TextBlock x:Name="StatusLabel" Text="系统就绪" />
             </StatusBarItem>
-        </StatusBar>
+        </StatusBar>-->
     </Grid>
 </Window>
