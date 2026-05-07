@@ -23,6 +23,7 @@
     <InstallerAppVersion Condition="'$(InstallerAppVersion)' == ''">1.0.0</InstallerAppVersion>
     <InnoSetupCompilerPath Condition="'$(InnoSetupCompilerPath)' == '' and Exists('C:\Program Files (x86)\Inno Setup 6\ISCC.exe')">C:\Program Files (x86)\Inno Setup 6\ISCC.exe</InnoSetupCompilerPath>
     <InnoSetupCompilerPath Condition="'$(InnoSetupCompilerPath)' == '' and Exists('C:\Program Files\Inno Setup 6\ISCC.exe')">C:\Program Files\Inno Setup 6\ISCC.exe</InnoSetupCompilerPath>
+    <ApplicationIcon>wpfui.ico</ApplicationIcon>
   </PropertyGroup>
 
   <!-- 仅在 Release 模式构建 React UI（Debug 模式使用 Vite 开发服务器） -->
@@ -46,6 +47,9 @@
   <Content Include="WebAsset\**">
     <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
   </Content>
+</ItemGroup>
+<ItemGroup>
+  <Content Include="wpfui.ico" />
 </ItemGroup>
 
 <ItemGroup>
@@ -72,24 +76,18 @@
     <Delete Files="@(FilesToDelete)" TreatErrorsAsWarnings="true" />
   </Target>
 
-  <Target Name="BuildInnoSetupInstaller"
-          AfterTargets="Build"
-          Condition="'$(Configuration)' == 'Release' and '$(GenerateInnoSetupInstaller)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+  <Target Name="BuildInnoSetupInstaller" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(GenerateInnoSetupInstaller)' == 'true' and '$(DesignTimeBuild)' != 'true'">
     <PropertyGroup>
       <InstallerInputDir>$(TargetDir)</InstallerInputDir>
     </PropertyGroup>
 
-    <Error Condition="!Exists('$(InstallerScriptPath)')"
-           Text="未找到 Inno Setup 脚本: $(InstallerScriptPath)" />
-    <Error Condition="'$(InnoSetupCompilerPath)' == '' or !Exists('$(InnoSetupCompilerPath)')"
-           Text="未找到 Inno Setup 编译器 ISCC.exe。请先安装 Inno Setup 6，或通过 /p:InnoSetupCompilerPath=... 指定路径。" />
-    <Error Condition="'$(InstallerInputDir)' == '' or !Exists('$(InstallerInputDir)')"
-           Text="未找到用于制作安装包的生成输出目录: $(InstallerInputDir)" />
+    <Error Condition="!Exists('$(InstallerScriptPath)')" Text="未找到 Inno Setup 脚本: $(InstallerScriptPath)" />
+    <Error Condition="'$(InnoSetupCompilerPath)' == '' or !Exists('$(InnoSetupCompilerPath)')" Text="未找到 Inno Setup 编译器 ISCC.exe。请先安装 Inno Setup 6，或通过 /p:InnoSetupCompilerPath=... 指定路径。" />
+    <Error Condition="'$(InstallerInputDir)' == '' or !Exists('$(InstallerInputDir)')" Text="未找到用于制作安装包的生成输出目录: $(InstallerInputDir)" />
 
     <MakeDir Directories="$(InstallerOutputDir)" />
     <Message Text="📦 正在生成 Inno Setup 安装包..." Importance="high" />
-    <Exec Command="&quot;$(InnoSetupCompilerPath)&quot; /DMyAppVersion=$(InstallerAppVersion) /DPublishDir=&quot;$(InstallerInputDir)&quot; &quot;$(InstallerScriptPath)&quot;"
-          WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <Exec Command="&quot;$(InnoSetupCompilerPath)&quot; /DMyAppVersion=$(InstallerAppVersion) /DPublishDir=&quot;$(InstallerInputDir)&quot; &quot;$(InstallerScriptPath)&quot;" WorkingDirectory="$(MSBuildProjectDirectory)" />
     <Message Text="✅ Inno Setup 安装包已生成到: $(InstallerOutputDir)" Importance="high" />
   </Target>
 
